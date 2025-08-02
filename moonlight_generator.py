@@ -7,6 +7,7 @@ import os
 import configparser
 from pathlib import Path
 import re
+import uuid
 
 def sanitize_filename(filename):
     """Remove or replace invalid filename characters"""
@@ -71,7 +72,7 @@ def load_config():
     if not os.path.exists('settings.ini'):
         # Create default config file
         config['DEFAULT'] = {
-            'json_file_path': 'apps.json',
+            'source_folder': './config',
             'output_directory': './moonlight_files',
             'use_index_in_id': 'false'
         }
@@ -82,23 +83,59 @@ def load_config():
     config.read('settings.ini')
     return config
 
-def load_apps_json(json_path):
-    """Load and parse the apps JSON file"""
+def load_apps_json(source_folder):
+    """Load and parse the apps JSON file from source folder"""
+    json_path = os.path.join(source_folder, 'apps.json')
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data.get('apps', [])
     except FileNotFoundError:
-        print(f"Error: JSON file '{json_path}' not found")
+        print(f"Error: apps.json not found in '{source_folder}'")
         return []
     except json.JSONDecodeError as e:
-        print(f"Error parsing JSON file: {e}")
+        print(f"Error parsing apps.json: {e}")
         return []
 
-def create_moonlight_files(apps, output_dir, use_index):
-    """Create .moonlight files for each app"""
+def load_sunshine_uuid(source_folder):
+    """Load UUID from sunshine_state.json"""
+    json_path = os.path.join(source_folder, 'sunshine_state.json')
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        # The uniqueid is nested under root
+        root_data = data.get('root', {})
+        return root_data.get('uniqueid')
+    except FileNotFoundError:
+        print(f"Error: sunshine_state.json not found in '{source_folder}'")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"Error parsing sunshine_state.json: {e}")
+        return None
+
+def create_uuid_file(output_dir, host_uuid):
+    """Create Moonlight.uuid file with the provided UUID"""
+    uuid_file_path = os.path.join(output_dir, "Moonlight.uuid")
+    
+    try:
+        with open(uuid_file_path, 'w', encoding='utf-8') as f:
+            f.write(host_uuid)
+        print(f"Created: {uuid_file_path} (UUID: {host_uuid})")
+        return True
+    except Exception as e:
+        print(f"Error creating UUID file: {e}")
+        return False
+
+def create_moonlight_files(apps, output_dir, use_index, host_uuid):
+    """Create .moonlight files for each app and UUID file"""
     # Create output directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Create UUID file first
+    if host_uuid:
+        create_uuid_file(output_dir, host_uuid)
+    else:
+        print("Warning: No UUID found, skipping Moonlight.uuid creation")
     
     created_files = 0
     
@@ -117,7 +154,7 @@ def create_moonlight_files(apps, output_dir, use_index):
         file_path = os.path.join(output_dir, f"{safe_filename}.moonlight")
         
         try:
-            # Write app ID to file
+            # Write app ID to file (this will overwrite existing files)
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(app_id)
             
@@ -136,29 +173,38 @@ def main():
     
     # Load configuration
     config = load_config()
-    json_path = config.get('DEFAULT', 'json_file_path', fallback='apps.json')
+    source_folder = config.get('DEFAULT', 'source_folder', fallback='./config')
     output_dir = config.get('DEFAULT', 'output_directory', fallback='./moonlight_files')
     use_index = config.getboolean('DEFAULT', 'use_index_in_id', fallback=False)
     
-    print(f"JSON file: {json_path}")
+    print(f"Source folder: {source_folder}")
     print(f"Output directory: {output_dir}")
     print(f"Use index in ID: {use_index}")
     print()
     
+    # Load UUID from sunshine_state.json
+    host_uuid = load_sunshine_uuid(source_folder)
+    if host_uuid:
+        print(f"Found host UUID: {host_uuid}")
+    else:
+        print("Warning: Host UUID not found in sunshine_state.json")
+    
     # Load apps from JSON
-    apps = load_apps_json(json_path)
+    apps = load_apps_json(source_folder)
     if not apps:
-        print("No apps found or failed to load JSON file")
+        print("No apps found or failed to load apps.json")
         return
     
-    print(f"Found {len(apps)} apps in JSON file")
+    print(f"Found {len(apps)} apps in apps.json")
     print()
     
     # Create moonlight files
-    created = create_moonlight_files(apps, output_dir, use_index)
+    created = create_moonlight_files(apps, output_dir, use_index, host_uuid)
     
     print()
     print(f"Successfully created {created} .moonlight files")
+    if host_uuid:
+        print("Created Moonlight.uuid file")
 
 if __name__ == "__main__":
     main()
