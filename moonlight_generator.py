@@ -74,7 +74,8 @@ def load_config():
         config['DEFAULT'] = {
             'source_folder': './config',
             'output_directory': './moonlight_files',
-            'use_index_in_id': 'false'
+            'use_index_in_id': 'false',
+            'clear_output_folder': 'true'
         }
         with open('settings.ini', 'w') as f:
             config.write(f)
@@ -113,6 +114,37 @@ def load_sunshine_uuid(source_folder):
         print(f"Error parsing sunshine_state.json: {e}")
         return None
 
+def clear_output_folder(output_dir):
+    """Clear all .moonlight and .uuid files from output directory"""
+    if not os.path.exists(output_dir):
+        return 0
+    
+    deleted_count = 0
+    try:
+        for filename in os.listdir(output_dir):
+            if filename.endswith('.moonlight') or filename == 'Moonlight.uuid':
+                file_path = os.path.join(output_dir, filename)
+                os.remove(file_path)
+                deleted_count += 1
+        
+        if deleted_count > 0:
+            print(f"Cleared {deleted_count} existing files from output directory")
+    except Exception as e:
+        print(f"Error clearing output directory: {e}")
+    
+    return deleted_count
+    """Create Moonlight.uuid file with the provided UUID"""
+    uuid_file_path = os.path.join(output_dir, "Moonlight.uuid")
+    
+    try:
+        with open(uuid_file_path, 'w', encoding='utf-8') as f:
+            f.write(host_uuid)
+        print(f"Created: {uuid_file_path} (UUID: {host_uuid})")
+        return True
+    except Exception as e:
+        print(f"Error creating UUID file: {e}")
+        return False
+
 def create_uuid_file(output_dir, host_uuid):
     """Create Moonlight.uuid file with the provided UUID"""
     uuid_file_path = os.path.join(output_dir, "Moonlight.uuid")
@@ -126,10 +158,14 @@ def create_uuid_file(output_dir, host_uuid):
         print(f"Error creating UUID file: {e}")
         return False
 
-def create_moonlight_files(apps, output_dir, use_index, host_uuid):
+def create_moonlight_files(apps, output_dir, use_index, host_uuid, clear_folder):
     """Create .moonlight files for each app and UUID file"""
     # Create output directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Clear existing files if requested
+    if clear_folder:
+        clear_output_folder(output_dir)
     
     # Create UUID file first
     if host_uuid:
@@ -176,10 +212,12 @@ def main():
     source_folder = config.get('DEFAULT', 'source_folder', fallback='./config')
     output_dir = config.get('DEFAULT', 'output_directory', fallback='./moonlight_files')
     use_index = config.getboolean('DEFAULT', 'use_index_in_id', fallback=False)
+    clear_folder = config.getboolean('DEFAULT', 'clear_output_folder', fallback=True)
     
     print(f"Source folder: {source_folder}")
     print(f"Output directory: {output_dir}")
     print(f"Use index in ID: {use_index}")
+    print(f"Clear output folder: {clear_folder}")
     print()
     
     # Load UUID from sunshine_state.json
@@ -199,7 +237,7 @@ def main():
     print()
     
     # Create moonlight files
-    created = create_moonlight_files(apps, output_dir, use_index, host_uuid)
+    created = create_moonlight_files(apps, output_dir, use_index, host_uuid, clear_folder)
     
     print()
     print(f"Successfully created {created} .moonlight files")
