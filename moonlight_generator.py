@@ -88,13 +88,8 @@ def load_apps_json(source_folder):
     """Load and parse the apps JSON file from source folder"""
     json_path = os.path.join(source_folder, 'apps.json')
     try:
-        # Try utf-8-sig first to handle BOM, fallback to utf-8
-        try:
-            with open(json_path, 'r', encoding='utf-8-sig') as f:
-                data = json.load(f)
-        except UnicodeDecodeError:
-            with open(json_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         return data.get('apps', [])
     except FileNotFoundError:
         print(f"Error: apps.json not found in '{source_folder}'")
