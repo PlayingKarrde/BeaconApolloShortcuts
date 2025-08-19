@@ -12,7 +12,7 @@ import uuid
 def sanitize_filename(filename):
     """Remove or replace invalid filename characters"""
     # Replace invalid characters with underscores
-    sanitized = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    sanitized = re.sub(r'[<>:"/\\|?*]', '', filename)
     # Remove trailing dots and spaces
     sanitized = sanitized.rstrip('. ')
     return sanitized
